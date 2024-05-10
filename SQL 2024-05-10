@@ -1,0 +1,250 @@
+#2024-05-10 --------------------------------------------------------------------------
+use 한빛무역;
+/* 	TABLE, *로 잡거나 고객번호(PK)로 잡음
+	PK: Primary Key, NN:Not Null
+    Datatype
+    CHAR(크기): 문자열, VARCHAR(최대_크기): 가변적문자열,  */
+
+select * from 고객;
+/* 	count(*|컬럼): 레코드 개수, sum(컬럼|수식): 합, avg(컬럼|수식): 평균, 
+	max(컬럼|수식): 최댓값, min(컬럼|수식): 최솟값, stddev(컬럼|수식): 표준편차 */
+select count(*), count(고객번호), count(도시), count(지역) from 고객;
+
+select sum(마일리지), avg(마일리지), min(마일리지), max(마일리지) from 고객;
+
+/* where절에 조건(각 행에 대한 조건)을 넣으면 조건에 맞는 레코드에 한해서 값을 요약할 수 있음 */
+select sum(마일리지), avg(마일리지), min(마일리지), max(마일리지) from 고객 where 도시 ='서울특별시';
+
+/* 	select 그룹으로_묶을_컬럼명, 집계_함수 from 테이블명 [where절] group by 그룹으로_묶을_컬럼명;(선호하는 방식)
+	★ group by: 그룹으로 묶어서 요약할 때 사용 */
+select 도시, count(*) as 고객수, avg(마일리지) as 평균마일리지 from 고객 group by 도시;
+/* *이나 고객번호로 값을 불러올 수 있음 */
+
+/* 	select 그룹으로_묶을_컬럼명, 집계_함수 from 테이블명 [where절] group by 컬럼_순번;(선호하지 않는 방식)
+	group by: 그룹으로 묶어서 요약할 때 사용 */
+select 도시, count(고객번호) as 고객수, avg(마일리지) as 평균마일리지 from 고객 group by 1;
+
+/* 	우선순위가 1번(담당자직위), 2번(도시)로 순서에 유의하여 작성, order by는 생략하면 기본값 asc 적용
+	인덱스는 0부터 있으나 1부터 사용되며 열번호(아래 코드 기준, 담당자직위(1), 도시(2), 고객수(3), 평균마일리지(4))로 값을 불러올 수 있음. */
+select 담당자직위, 도시, count(*) as 고객수, avg(마일리지) as 평균마일리지 from 고객 group by 담당자직위, 도시 order by 1, 2;
+
+/* 	HAVING절: GROUP BY의 결과에 대하여 '추가조건'을 넣고자 한다면 HAVING절을 사용(HAVING절은 GROUP BY와 세트로 GROUP BY가 없으면 사용 불가)
+	WHERE절은 각 행에 대한 조건, HAVING은 GROUP BY에 대한 조건으로 차이를 보임
+	SELECT 그룹으로_묶을_컬럼명, 집계_함수 FROM 테이블명 [WHERE절] GROUP BY 그룹으로_묶을_컬럼명 [HAVING절]; */
+select 도시, count(*) as 고객수, avg(마일리지) as 평균마일리지 from 고객 group by 도시 having count(*) >= 10;
+
+/* 	고객번호가 'T'로 시작하는 고객에 대해 도시별로 묶어서 고객 마일리지 합을 구하고, 마일리지 합이 1,000점 이상인 레코드만 출력
+	고객번호는 그룹이 아니므로 WHERE절에 사용, HAVING에는 마일리지의 합이 1000점 이상인 도시만 출력하기 위해 사용 */
+select 도시, sum(마일리지) from 고객 where 고객번호 like 'T%' group by 도시 having sum(마일리지) >= 1000;
+
+/* 	★ WITH ROLLUP: 그룹별 소계와 전체 총계를 한번에 확인하고 싶을 때 사용
+	SELECT 그룹으로_묶을_컬럼명, 집계_함수 FROM 테이블명 GROUP BY 그룹으로_묶을_컬럼명 WITH ROLLUP; 
+	만약 결과값이 나오지 않는다면 update문으로 문자열을 null로 변경하기
+    update 테이블명 set 컬럼명 = null where 컬럼명 = '';	*/
+select 도시, count(*) as 고객수, avg(마일리지) as 평균마일리지 from 고객 where 지역 is null group  by 도시 with rollup;
+
+/* with rollup에서 null 값 부분에 ★'ifnull(도시, '총계') as 도시'처럼 값을 입력해주는 것이 중요! */
+select ifnull(도시, '총계') as 도시, count(*) as 고객수, avg(마일리지) as 평균마일리지 from 고객 where 지역 is null group by 도시 with rollup;
+ 
+ /* IFNULL(수식1, 수식2): 수식1이 NULL이면 수식2 반환 */
+select ifnull(담당자직위, '담당자직위_NULL') as 담당자직위, ifnull(도시, '도시_NULL') as 도시, count(*) as 고객수 from 고객 where 담당자직위 like '%마케팅%' group by 담당자직위, 도시 with rollup;
+
+/* 의미가 서로 다른 NULL 어떻게 구별? → GROUPING() */
+select 지역, count(*) as 고객수 from 고객 where 담당자직위 = '대표 이사' group by 지역 with rollup;
+
+/* GROUPING(): WITH ROLLUP의 결과로 나온 NULL에 대해서는 1을 반환, 그렇지 않은 NULL에 대해서는 0을 반환 */
+select 지역, count(*) as 고객수, grouping(지역) as 구분 from 고객 where 담당자직위 = '대표이사' group by 지역 with rollup;
+
+/* GROUP_CONCAT(컬럼명): 각 행에 있는 값을 결합 */
+select group_concat(이름) from 사원;
+
+/* GROUP_CONCAT(DISTINCT 컬럼명): 중복되는 컬럼명은 한 번씩만 출력 */
+select group_concat(distinct 지역) from 고객;
+
+/* GROUP_CONCAT(컬럼명) AS 별명: 각 행에 있는 값을 결합 후 그 행에서 사용할 별명을 붙여줌 */
+select 도시, group_concat(고객회사명) as 고객회사명_목록 from 고객 group by 도시;
+
+select 지역, count(*) as 고객수, grouping(지역) as 구분 from 고객 where 담당자직위 = '대표이사' group by 지역 with rollup;
+
+
+/* 점검문제 */
+
+/* 문제1 */
+select count(도시) as 'COUNT(도시)'
+	, count(distinct 도시) as 'COUNT(DISTINCT 도시)'
+    from 고객;
+
+/* 문제2 */
+select year(주문일) as 주문년도
+	, count(주문번호) as 주문건수
+    from 주문 group by 주문년도;
+
+/* 문제3 */
+select year(주문일) as 주문년도
+	, quarter(주문일) as 분기
+    , count(주문일) as 주문건수
+	from 주문 group by 주문년도, 분기 with rollup;
+
+/* 문제4 */
+select month(주문일) as 주문월
+	, count(datediff(발송일, 요청일)) as 주문건수
+	from 주문 where datediff(발송일, 요청일) > 0 group by 주문월 order by 주문월 asc;
+
+
+/* 문제5 */
+select 제품명
+	, sum(재고) as 재고합
+    from 제품 where 제품명 like '%아이스크림' group by 제품명;
+    
+/* 문제6 */
+select if(마일리지 >= 50000, 'vip고객', '일반고객') as 고객구분
+	, count(*) as 고객수
+	, avg(마일리지) as 평균마일리지 from 고객 group by 고객구분;
+
+
+/* 	크로스 조인: 한쪽 테이블의 각 행마다 다른쪽 테이블의 모든 행이 한 번씩 각각 매칭되는 조인을 의미, 카티션 곱이라고도 칭함.
+	ANSI SQL 조인 방식(표준): 
+    SELECT * 
+    FROM 테이블A 
+    [CROSS|INNER|OUTER] JOIN 테이블B 
+  ★ ON 조인_조건 (여기서 CROSS는 'ON' 생략이 가능)
+    WHERE 나머지_조건;  
+    추가로 '부서 CROSS JOIN 사원'은 쿼리 테이블 */
+select 부서.부서번호, 부서명, 이름, 사원.부서번호 
+	from 부서 
+	cross join 사원 
+    where 이름 = '배재용';
+
+/* 	on 이후는 '조인 조건'이 들어가고, 이때 같은 필드값으로 하나는 일반, 하나는 PK가 들어감 
+	여기서 사원.부서번호(일반), 부서.부서번호(PK) */
+select 사원번호, 직위, 사원.부서번호, 부서명 
+	from 사원 
+    inner join 부서 
+    on 사원.부서번호 = 부서.부서번호 
+    where 이름 = '이소미';
+
+select 고객.고객번호, 담당자명, 고객회사명
+	, count(*) as 주문건수 
+    from 고객 
+    inner join 주문 
+    on 고객.고객번호 = 주문.고객번호 
+    group by 고객.고객번호, 담당자명, 고객회사명 
+    order by count(*) desc;
+
+/* 	1번: 고객 inner join 주문, 1번 조인 조건: on 고객.고객번호 = 주문.고객번호, 
+	2번: inner join 주문세부, 2번 조인 조건: on 주문.주무번호 = 주문세부.주문번호 */
+select 고객.고객번호, 담당자명, 고객회사명
+	, sum(주문수량 * 단가) as 주문금액합 
+	from 고객 
+    inner join 주문 
+    on 고객.고객번호 = 주문.고객번호 
+    inner join 주문세부 
+    on 주문.주문번호 = 주문세부.주문번호 
+    group by 고객.고객번호, 담당자명, 고객회사명 
+    order by 주문금액합 desc;
+
+/* 고객번호에 알파벳 대문자 한 글자 이름 부여 */
+select 고객번호, 담당자명, 마일리지, 등급.* from 고객 cross join 마일리지등급 as 등급 where 담당자명 = '이은광';
+
+/*	아래 방법은 일반적인 방법은 아니므로 좋은 방법은 아님(필드명이 같은 PK와 외래키가 없이 마일리지와 상,하한마일리지로 조인) 
+	아래의 on절을 'on 마일리지 between 하한마일리지 and 상한마일리지'로도 작성 가능 */
+select 고객번호, 고객회사명, 담당자명, 마일리지, 등급명
+from 고객 
+inner join 마일리지등급
+on 마일리지 >= 하한마일리지 and 마일리지 <= 상한마일리지
+where 담당자명 = '이은광';
+    
+/* SELECT * 
+	FROM 테이블A 
+    LEFT|RIGHT [OUTER] JOIN 테이블B
+    ON 조인_조건
+    WHERE 나머지_조건; */
+select 사원번호, 이름, 부서명
+	from 사원
+    left outer join 부서
+    on 사원.부서번호 = 부서.부서번호
+    where 성별 = '여';
+ 
+ /* 사원 테이블의 정보는 모두 출력, 겹치지 않는 부서 테이블의 정보는 null로 출력 */
+ select *
+	from 사원
+    left outer join 부서
+    on 사원.부서번호 = 부서.부서번호;
+ 
+ /* 부서 테이블의 정보는 모두 출력, 겹치지 않는 사원 테이블의 정보는 null로 출력 */
+ select *
+	from 부서
+    left outer join 사원
+    on 사원.부서번호 = 부서.부서번호;
+
+/* 부서명과 해당 부서의 소속 사원 정보 + 사원이 한명도 존재하지 않는 부서명을 출력 */
+select 부서명, 사원.*
+from 사원
+right outer join 부서
+on 사원.부서번호 = 부서.부서번호;
+
+/* 사원이 한명도 존재하지 않는 부서명만 출력 */
+select 부서명, 사원.*
+from 사원
+right outer join 부서
+on 사원.부서번호 = 부서.부서번호
+where 사원.부서번호 is null;
+
+/* 소속 부서가 없는 사원의 이름 출력, 사원 테이블이 기준으로 부서가 없더라도 출력됨 */
+select 이름, 부서.*
+from 사원
+left outer join 부서
+on 사원.부서번호 = 부서.부서번호
+where 부서.부서번호 is null;
+
+/* 	셀프 조인(SELF JOIN): 동일한 테이블 내에서 한 컬럼이 다른 컬럼을 참조하는 조인 
+	사원번호, 사원의 이름, 상사의 사원번호, 상사의 이름 출력 */
+select 사원.사원번호, 사원.이름, 상사.사원번호 as '상사의 사원번호', 상사.이름 as '상사의 이름'
+from 사원
+inner join 사원 as 상사
+on 사원.상사번호 = 상사.사원번호;
+
+/* 사원이름, 직위, 상사이름을 상사이름 순으로 정렬하고 상사가 없는 사원의 이름도 같이 출력 */
+select 사원.이름 as 이름, 사원.직위, 상사.이름 as 상사이름
+from 사원 as 상사
+right outer join 사원
+on 사원.상사번호 = 상사.사원번호
+order by 상사이름;
+
+
+/* 점검문제 */
+
+/* 문제1 */
+select 제품.제품명
+, sum(주문수량) as 주문수량합
+, sum(주문세부.단가 * 주문수량) as 주문금액합
+from 제품
+inner join 주문세부
+on 제품.제품번호 = 주문세부.제품번호
+group by 제품명;
+
+/* 문제2 */
+select year(주문일) as 주문년도, 제품명
+, sum(주문세부.주문수량) as 주문수량합
+from 주문세부
+inner join 주문
+on 주문.주문번호 = 주문세부.주문번호
+inner join 제품
+on 주문세부.제품번호 = 제품.제품번호
+where 제품명 like '%아이스크림'
+group by 주문년도, 제품명;
+
+/* 문제3 */
+select 제품명
+, sum(주문세부.주문수량) as 주문수량합
+from 제품
+left outer join 주문세부
+on 주문세부.제품번호 = 제품.제품번호
+group by 제품명;
+
+/* 문제4 */
+select 고객.고객번호, 고객회사명, 담당자명, 등급명, 마일리지
+from 고객
+inner join 마일리지등급
+on 마일리지 between 10000 and 99999
+where 등급명 = 'A';
