@@ -1,0 +1,467 @@
+#2024-05-13-----------------------------------------------------------------------------------------------------------
+use 한빛무역;
+/* 	서브쿼리(SubQuery): SQL문 내부에서 사용하는 SELECT문으로 복잡한 데이터 추출 및 조작 작업에 유용, SQL문의 유연성과 기능 확장에 도움이 됨
+	소괄호('()') 안에 기술, WHERER절(제일 많이 사용), SELECT절, FROM절, HAVING절 등에 넣어 사용
+	목적: 데이터 필터링, 집계 및 계산, 비교 및 검증, 중첩된 데이터 추출, EXISTS절	*/
+select 고객번호, 고객회사명, 담당자명, 마일리지 
+from 고객 
+where 마일리지 = (select max(마일리지) from 고객);
+
+/* 	
+	1. 주문 테이블에서 주문번호가 'H0250'인 고객의 고객번호로
+	2. 고객 테이블의 같은 고객번호를 가지고 있는 필드의 고객회사명, 담당자명, 전화번호, 주소를 가져옴
+	★ 서브쿼리는 결과로 보여지는 값과는 다르게 all(*)처럼 인식되고 있음.(아래처럼 작성 후 비교)
+		이후 메인 select에 해당되는 필드만 출력
+ 	select *
+	from 고객
+	where 고객번호 = (select 고객번호 from 주문 where 주문번호 = 'H0250');
+*/
+select *
+from 고객
+where 고객번호 = (select 고객번호 from 주문 where 주문번호 = 'H0250');
+
+select 고객회사명, 담당자명, 전화번호, 주소
+from 고객
+where 고객번호 = (select 고객번호 from 주문 where 주문번호 = 'H0250');
+
+/* 같은 내용의 코드이나 조인을 사용 */
+select 고객회사명, 담당자명, 전화번호, 주소
+from 고객
+inner join 주문
+on 고객.고객번호 = 주문.고객번호
+where 주문번호 = 'H0250';
+
+/* 	고객 테이블 중 부산광역시에 거주하는 사람의 최소 마일리지는 int형 데이터 806이나 데이터 베이스의 값은
+	수시로 변경되기 때문에 where 마일리지 > 806 처럼 고정되는 값으로 작성하지 않음. */
+select min(마일리지)
+from 고객
+where 도시 = '부산광역시';
+
+select 담당자명, 고객회사명, 마일리지
+from 고객
+where 마일리지 > (select min(마일리지) from 고객 where 도시 = '부산광역시');
+
+/*
+	복수 행 서브쿼리(Multi-Row SubQuery): 서브쿼리 결과가 여러 행이 나오는 쿼리.
+	IN, ANY, SOME, ALL, EXISTS와 같은 복수 행 비교 연산자 사용하여 메인쿼리와 연결
+    IN(=): 메인 쿼리의 비교 조건이 서브쿼리 결과 중 '일치하는 것이 하나라도 있으면 참', 서브쿼리의 각 결과값마다 = 연산자로 비교
+    ANY, SOME(MIN): 서브쿼리의 각 결과값을 >, <, >=, <= 등의 비교 연산자로 비교하여 '하나 이상 일치하면 참', 서브쿼리의 최소 결과값과 비교
+    ALL(MAX): 서브쿼리의 각 결과값을 >, <, >=, <= 등의 비교 연산자로 비교하여 '모두 일치하면 참', 서브쿼리의 최대 결과값과 비교
+	EXISTS: 서브쿼리에 '비교 조건을 만족하는 결과가 존재하면 참', 컬럼으로 비교하지 않고, '행의 존재여부로 비교'하기 때문에 EXISTS 연산자 앞에는 컬럼명을 넣지 않음(좌측에 필드명 X)
+    (EXISTS의 반환형은 논리형으로 반환값은 true, false로 false는 버리고 true만 가져옴)
+*/
+select avg(마일리지), 지역 from 고객 group by 지역;
+
+/* IN(=): 서브쿼리의 각 결과마다 = 연산자를 사용하여 비교하여 해당되는 필드값 반환 */
+select 고객번호
+from 고객
+where 도시 = '부산광역시';
+
+select count(*) as 주문건수
+from 주문
+where 고객번호 in (select 고객번호 from 고객 where 도시 = '부산광역시');
+
+/* ANY, SOME(MIN): 서브쿼리의 각 결과에 대해 > 등 비교 연산자를 사용하여 서브쿼리의 '최소값'과 비교하여 '하나 이상' 만족하는 필드의 필드값을 반환 */
+select 마일리지
+from 고객
+where 도시 = '부산광역시';
+
+select 담당자명, 고객회사명, 마일리지
+from 고객
+where 마일리지 > any (select 마일리지 from 고객 where 도시 = '부산광역시');
+
+/* ALL(MAX): 서브쿼리의 각 결과에 대해 > 등 비교 연산자를 사용하여 비교한 후 서브쿼리의 '최대값'과 비교하여 '모두' 만족하는 필드의 필드값을 반환 */
+select avg(마일리지) from 고객 group by 지역;
+
+select 담당자명, 고객회사명, 마일리지
+from 고객
+where 마일리지 > all (select avg(마일리지) from 고객 group by 지역);
+
+/*	★ DISTINCT: 중복성 최소화(중복된 필드값 최소화로 제거가 아님), 딜리버리(배송장) 등 기능구현할 때 반드시 사용해야 함
+	필드(필드명+필드값), ex) 고객번호(필드명)+'NETVI'(필드값) */
+select 고객번호 from 주문;
+select distinct 고객번호 from 주문;
+
+/* EXISTS(Boolean형): 서브쿼리에 비교 조건을 만족하는 결과가 존재하면 참. 컬럼이 아닌, 행의 존재 여부로 비교하여 EXISTS 연산자 앞에는 컬럼명을 넣지 않음 */
+select 고객번호, 고객회사명, 주소, 전화번호
+from 고객
+where exists (select * from 주문 where 고객번호 = 고객.고객번호);
+
+/* IN 사용 */
+select 고객번호, 고객회사명, 주소, 전화번호
+from 고객
+where 고객번호 in (select distinct 고객번호 from 주문);
+
+/* INNER JOIN 사용 */
+SELECT * FROM 주문;
+SELECT * FROM 고객;
+
+/* order by 컬럼명 asc: 오름차순(기본값으로 생략이 가능), desc: 내림차순 */
+select distinct 고객.고객번호, 고객회사명, 주소, 전화번호
+from 고객
+inner join 주문
+on 고객.고객번호 = 주문.고객번호
+order by 고객.고객번호 asc;
+
+/* EXISTS 사용, 단 한 번도 주문한 적이 없는 고객의 정보 검색 */
+select 고객번호, 고객회사명, 주소, 전화번호
+from 고객
+where not exists (select * from 주문 where 고객번호 = 고객.고객번호);
+
+/* 위 코드 중 null 값 제거 */
+select 고객.고객번호, 고객회사명, 주소, 전화번호
+from 고객
+left join 주문
+on 고객.고객번호 = 주문.고객번호
+where 주문.고객번호 is null;
+
+/* 	HAVING절 내부의 서브쿼리
+	HAVING절은 GROUP BY에 대한 '추가조건'으로 각 행에 대한 조건인 WHERE절과 기능이 유사 */
+select 도시, avg(마일리지) as 평균_마일리지
+from 고객
+group by 도시
+having avg(마일리지) > (select avg(마일리지) from 고객)
+order by 평균_마일리지 desc;
+
+/* FROM절 내부 서브쿼리(인라인 뷰(가상테이블), 반드시 별명을 지정해주어야 함(별명을 테이블명처럼 사용)) */
+select 도시
+, avg(마일리지) as 도시_평균마일리지
+from 고객
+group by 도시;
+
+/* SELECT문 뒤에는 필드만 올 수 있음 */
+select 담당자명, 고객회사명, 마일리지, 고객.도시, 도시_평균마일리지, 도시_평균마일리지 - 마일리지 as 차이
+from 고객			# ★ FROM 뒤의 고객 테이블은 보조기억장치에 생성되어 있다가 실행하면 주기억장치로 상주(물리적 테이블)
+, (select 도시		# ★ 서브쿼리(SELECT문)은 보조기억장치에 있지 않다가 실행하면 주기억장치로 상주(가상 테이블)
+, avg(마일리지) as 도시_평균마일리지
+from 고객 						
+group by 도시
+) as 도시별요약
+where 고객.도시 = 도시별요약.도시;
+
+/* 	SELECT절 내부 서브쿼리(스칼라 서브쿼리: 서브쿼리가 하나의 값을 생성하는 형태), 반환되는 값은 메인 쿼리에서 사용
+	단, 서브쿼리의 결과로 행을 0개 반환하면 메인 쿼리의 결과는 NULL, 2개 이상 반환하면 오류가 발생 */
+select max(주문일)
+from 주문, 고객		# 해당 코드에서는 고객 필드에 대한 값이 없어서 그대로 실행이 불가.(from절에 고객 필드 추가)
+where 주문.고객번호 = 고객.고객번호; 
+
+select 고객번호
+	, 담당자명
+	, (select max(주문일)
+	from 주문
+	where 주문.고객번호 = 고객.고객번호
+	) as 최종주문일
+from 고객;
+
+/*
+	CTE(Common Table Expression): 쿼리로 만든 '임시 데이터셋', WITH절에서 정의(SELECT문에 별명 부여)
+	인라인 뷰와 마찬가지로 파생 테이블(Derived Table)처럼 사용(미리 만들어놓는 테이블(가상 테이블)),
+    하나의 쿼리를 논리적인 블록으로 나눌 수 있어 가독성이 좋고, 쿼리 내에서 여러 번 참조(재사용성이 좋음)
+    
+    WITH CTE명  AS
+    (
+		SELECT문
+    )
+*/
+with 도시별요약 as
+	(
+	 select 도시, avg(마일리지) as 도시_평균마일리지
+     from 고객
+     group by 도시
+    )
+select 담당자명, 고객회사명, 마일리지, 고객.도시, 도시_평균마일리지, 도시_평균마일리지 - 마일리지 as 차이
+from 고객, 도시별요약
+where 고객.도시 = 도시별요약.도시;
+
+/* 	상관 서브쿼리(Correlated SubQuery): 메인 쿼리와 서브쿼리 간의 상관관계를 포함하는 형태의 쿼리, 메인 쿼리를 한 행씩 처리
+	연관이 있는 컬럼을 기준으로 서브쿼리에서 값을 찾아 데이터가 많아지면 속도가 느려질 수 있으니 주의
+    상관 서브쿼리는 SELECT절, FROM절, WHERE절 등(HAVING절 제외)에서 사용 */
+select 사원번호, 이름, 상사번호, (select 이름 from 사원 as 상사 where 상사.사원번호 = 사원.상사번호) as 상사이름
+from 사원;
+
+/* 	다중 컬럼 서브쿼리(Multi-Column SubQuery): 서브쿼리에서 여러 개의 컬럼을 사용하여 다중 비교를 하는 쿼리
+	서브쿼리의 결과로 나오는 여러 컬럼을 메인 쿼리의 값과 비교하여 결과를 출력 */
+select 도시, 담당자명, 고객회사명, 마일리지
+from 고객
+where (도시, 마일리지) in (select 도시, max(마일리지) from 고객 group by 도시); # WHERE A IN B, 여기서의 A와 B는 순서와 개수가 같아야 함.
+
+/* 점검문제 */
+
+/* 문제1 */
+select 부서명
+from 부서
+inner join 사원
+on 사원.부서번호 = 부서.부서번호
+where 이름 = '배재용';
+/* 문제1(참고용)*/
+select 부서명
+from 부서
+where 부서번호 in (select 부서번호
+				from 사원
+                where 이름 = '배재용');
+
+/* 문제2 */
+select 제품번호, 제품명, 포장단위, 단가, 재고, 단가 * 재고 as 재고금액
+from 제품
+where not exists (select * from 주문세부 where 제품번호 = 제품.제품번호);
+/* 문제2(참고용) */
+select 제품번호, 제품명, 포장단위, 단가, 재고, 단가 * 재고 as 재고금액
+from 제품
+where 제품번호 not in (select 제품번호 from 주문세부);
+
+/* 문제3 */
+select distinct 담당자명, 고객.고객회사명
+, (select count(주문일) from 주문 where 주문.고객번호 = 고객.고객번호) as 주문건수
+, (select min(주문일) from 주문 where 주문.고객번호 = 고객.고객번호) as 최초주문일
+, (select max(주문일) from 주문 where 주문.고객번호 = 고객.고객번호) as 최종주문일
+from 고객
+where (select count(주문일) from 주문 where 주문.고객번호 = 고객.고객번호) > 0;
+/* 문제3(참고용) */
+select 담당자명, 고객회사명
+, (select count(고객번호) from 주문 where 고객.고객번호 = 주문.고객번호) as 주문건수
+, (select min(주문일) from 주문 where 고객.고객번호 = 주문.고객번호) as 최초주문일
+, (select max(주문일) from 주문 where 고객.고객번호 = 주문.고객번호) as 최종주문일
+from 고객;
+
+/*
+	INSERT(삽입): 테이블에 새로운 '행을 삽입'하는 경우에 사용
+	
+    INSERT INTO 테이블명
+    VALUES(값1, 값2, ...);
+ 	
+    INSERT INTO 테이블명(필드명1, 필드명2, 필드명3)
+	VALUES(필드값1, 필드값2, 필드값3); 처럼 테이블명에 테이블 내 필드명과 그에 해당하는 필드값을 작성해야 행이 삽입됨
+    
+    만약, 중복된 값이나 NULL값이 들어가지 않고 오류가 발생하면
+    테이블 설정에서 필드명 부분에 'NN(Not Null)' or 'UQ(Unique)' 체크여부 확인
+*/
+insert into 부서
+values('A5', '마케팅부'); # 모든 필드명에 해당되는 값을 넣어야 함.(부서 테이블은 부서번호와 부서명 필드를 가짐)
+
+insert into 제품
+values(91, '연어피클소스', null, 5000, 40); # 여기서 91은 PK로 기준값
+
+insert into 제품(제품번호, 제품명, 단가, 재고)
+values(90, '연어핫소스', 4000, 50); # 여기서도 90은 PK로 기준값이 됨
+
+insert into 사원(사원번호, 이름, 직위, 성별, 입사일)
+values('E20', '김사과', '수습사원', '남', curdate())
+	, ('E21', '박바나나', '수습사원', '여', curdate())
+    , ('E22', '정오렌지', '수습사원', '여', curdate());
+
+/*
+	UPDATE(수정): 기존 행에 있는 데이터 값을 변경할 때 사용, 만약 UPDATE문에 WHERE절이 없으면 모든 행의 값이 변경되므로 주의
+    
+    MySQL에서는 테이블에서 키를 이용한 UPDATE 또는 DELETE만을 허용, 
+    UPDATE나 DELETE문에서 WHERE절이 없거나 WHERE절에 키 컬럼 외의 컬럼을 사용한 조건문이 사용되면 오류가 발생
+    해결방법: 워크벤치의 [Edit] - [Preferences] 메뉴에서 [SQL Editor] 선택 후 체크되어 있는 [Safe Updates] 항목 체크 해제
+    - 이후 <OK>버튼 클릭 후 워크벤치 재실행
+    
+	UPDATE 테이블명
+    SET 필드명1 = 필드값1
+		, 필드명2 = 필드값2
+	[WHERE 조건];
+*/
+update 사원
+set 이름 = '김레몬'
+where 사원번호 = 'E20'; # 사원번호가 PK(기준값)로 조건에 사용
+
+update 제품
+set 포장단위 = '200 ml bottles'
+where 제품번호 = 91; # 제품번호가 PK(기준값)로 조건에 사용
+
+update 제품
+set 단가 = 단가 * 1.1 	# 단가를 10% 인상
+	, 재고 = 재고 - 10	# 기존 재고에서 10을 뺌
+where 제품번호 = 91; # 제품번호가 PK
+
+/*
+	DELETE(삭제): 기존에 있는 행을 삭제할 때 사용, 만약 DELETE문에 WHERE절이 없으면 모든 행이 삭제되므로 주의
+	
+    DELETE FROM 테이블명
+    [WHERE 조건];
+*/
+delete from 제품
+where 제품번호 = 91; # 제품번호가 PK
+
+delete from 사원
+order by 입사일 desc limit 3; # order by 필드명 desc limit 3: 필드명에 대한 필드값의 내림차순 중 위에서 3번 째까지 출력
+  
+/*
+	INSERT ON DUPLICATE KEY UPDATE: 레코드가 없다면 새롭게 추가하고, 이미 있다면 데이터를 변경하는 경우에 사용
+	 → 	데이터를 삽입할 때 중복된 키(PK(Primary Key) 혹은 UQ(Unique Key))가 이미 존재할 경우 해당 행을 업데이트하고,
+		존재하지 않을 경우에는 새로운 행을 삽입
+    
+	INSERT INTO 테이블명(필드명1, 필드명2, 필드명3, ...)
+	VALUES(필드값1, 필드값2, 필드값3, ...)
+    ON DUPLICATE KEY UPDATE (→ 만약 중복되는 값이 있다면)
+    필드명2 = 필드값2, 필드명3 = 필드값3, ...;
+*/
+insert into 제품(제품번호, 제품명, 단가, 재고)
+values(91, '연어피클핫소스', 6000, 50) 			# 만약 제품번호(필드명) 91(PK)에 값이 없으면 (91, '연어 ~ 6000, 50) 해당 값을 삽입하고
+on duplicate key update 					# 필드명(제품번호) 내의 PK(91)에 중복되는 값이 있다면
+제품명 = '연어피클핫소스', 단가 = 6000, 재고 = 50; 	# PK 91에 제품명 = '연어피클...' ~ 재고 = 50;을 넣어서 수정
+
+/*
+	INSERT INTO SELECT: SELECT문의 결과를 다른 테이블에 삽입하려면 INSERT문에서 VALUES 대신 SELECT 문장을 넣음
+	이때 SELECT문의 컬럼 수와 INSERT문에 있는 컬럼 수는 동일해야 하고, 순서도 같아야 함.
+    
+    INSERT INTO 테이블명(필드명A, 필드명B)
+				SELECT 필드명1, 필드명2
+				FROM 테이블명
+                [WHERE 조건];
+*/
+# 고객주문요약 테이블 생성
+CREATE TABLE 고객주문요약
+(
+ 고객번호 CHAR(5) PRIMARY KEY
+ , 고객회사명 VARCHAR(50)
+ , 주문건수 INT
+ , 최종주문일 DATE
+);
+
+# 레코드 삽입
+insert into 고객주문요약
+		select 고객.고객번호, 고객회사명, count(*), max(주문일)
+        from 고객, 주문
+        where 고객.고객번호 = 주문.고객번호
+        group by 고객.고객번호, 고객회사명;
+     
+#결과 확인용     
+select * from 고객주문요약;
+
+/*
+	UPDATE SELECT: UPDATE문에서 서브쿼리를 사용할 수 있음, 변경할 값을 얻기 위해서는 SET절에서 SELECT문을 사용
+	서브쿼리의 SELECT문에는 '반드시' 별명을 붙여야 하고, 서브쿼리의 결과는 단일값이어야 함.
+    
+	UPDATE 테이블명
+    SET 필드명 = (
+				SELECT *
+                FROM (
+					  SELECT 필드A
+                      FROM ...
+                      ) AS 별명
+				WHERE 조건
+                );
+                
+	UPDATE 변경할_테이블명
+			, 서브쿼리
+	SET 필드명1 = 변경할_값
+    WHERE 필드명2 IN (서브쿼리.컬럼);
+*/
+# 제품번호가 91인 제품의 단가를 '소스'제품들의 평균단가로 변경
+update 제품
+set 단가 = (
+			select *
+            from (
+				  select avg(단가)
+                  from 제품
+                  where 제품명 like '%소스%'
+                 ) as T # 서브쿼리의 SELECT문에는 반드시 별명을 붙여줘야 함
+		  )
+where 제품번호 = 91; # 제품번호가 PK
+
+#결과 확인용
+select * 
+from 제품
+where 제품번호 = 91;
+
+# 한 번이라도 주문한 적이 있는 고객의 마일리지를 10% 인상
+update 고객
+	   , (
+			select distinct 고객번호
+            from 주문
+		 ) as 주문고객
+set 마일리지 = 마일리지 * 1.1
+where 고객.고객번호 in (주문고객.고객번호);
+
+#결과 확인용
+select * 
+from 고객
+where 고객번호 in (select distinct 고객번호 from 주문);
+
+/*
+	UPDATE JOIN: INNER JOIN을 사용하여 다른 테이블의 행과 일치하는 행을 수정
+    LEFT OUTER JOIN을 사용하여 그렇지 않은 행을 수정
+    변경할 값에는 상수나 수식 뿐만 아니라 조인할 테이블에 있는 컬럼에 기반하여 값을 넣음
+    
+    UPDATE 변경할_테이블A
+    [INNER|LEFT|OUTER] JOIN 조인할_테이블B
+    ON 조인_조건
+    SET 테이블A.필드명 = 필드값
+    WHERE 기타_조건;
+*/
+# 마일리지등급이 'S'인 고객의 마일리지에 1000점씩 추가
+update 고객
+inner join 마일리지등급
+on 마일리지 between 하한마일리지 and 상한마일리지
+set 마일리지 = 마일리지 + 1000
+where 등급명 = 'S';
+
+#결과 확인용
+select 고객번호, 고객회사명, 마일리지
+from 고객
+inner join 마일리지등급
+on 마일리지 between 하한마일리지 and 상한마일리지
+where 등급명 = 'S';
+
+/*
+	DELETE SELECT: DELETE문에서도 삭제할 레코드를 찾기 위하여 서브쿼리를 사용
+    
+    DELETE FROM 테이블A
+    WHERE 필드명 IN (
+				    SELECT 필드명
+                    FROM 테이블B
+                   );
+*/
+# 주문 테이블에는 존재하나 주문세부 테이블에는 존재하지 않는 주문번호를 주문 테이블에서 삭제
+delete from 주문
+where 주문번호 not in (
+					 select distinct 주문번호
+                     from 주문세부
+                    );
+
+/*
+	DELETE JOIN: INNER JOIN을 사용하여 두 테이블에서 일치하는 행을 모두 삭제
+    LEFT OUTER JOIN을 사용하여 일치하지 않는 행을 삭제
+    
+    DELETE 테이블A, 테이블B
+    FROM 테이블A
+    [INNER|LEFT|OUTER] JOIN 테이블B
+    ON 조인_조건
+    WHERE 삭제할_조건;
+*/
+# 주문, 주문세부 테이블에 주문번호 'H0248'이 존재하는지 확인
+select *
+from 주문
+where 주문번호 = 'H0248';
+
+select *
+from 주문세부
+where 주문번호 = 'H0248';
+
+# 주문, 주문세부 테이블에 주문번호 'H0248'을 동시에 삭제
+delete 주문, 주문세부
+from 주문
+inner join 주문세부
+on 주문.주문번호 = 주문세부.주문번호
+where 주문.주문번호 = 'H0248';
+
+# 한 번도 주문한 적이 없는 고객 정보 검색
+select 고객.*
+from 고객
+left outer join 주문
+on 고객.고객번호 = 주문.고객번호
+where 주문.고객번호 is null;
+
+# 주문한 적이 없는 고객의 레코드를 고객 테이블에서 삭제
+delete 고객
+from 고객
+left join 주문
+on 고객.고객번호 = 주문.고객번호
+where 주문.고객번호 is null;
+
+# 삭제된 고객 정보가 고객 테이블에 존재하는지 확인
+select *
+from 고객
+where 고객번호 in ('BQQZA', 'RISPA', 'SSAFI', 'TTRAN');
