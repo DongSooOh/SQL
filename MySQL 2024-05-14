@@ -1,0 +1,465 @@
+#2024-05-14------------------------------------------------------------------------------------------------------------
+use 한빛무역;
+
+/* 점검문제 */
+
+/* 문제1 */
+insert into 제품(제품번호, 제품명, 포장단위, 단가, 재고)
+values(95, '망고베리 아이스크림', '400g', 800, 30);
+
+# 문제1 확인용
+select * from 제품
+where 제품번호 = '95';
+
+/* 문제2 */
+insert into 제품(제품번호, 제품명, 단가)
+values(96, '눈꽃빙수맛 아이스크림', 2000);
+
+# 문제2 확인용
+select * from 제품
+where 제품번호 = '96';
+
+/* 문제3 */
+update 제품
+set 재고 = '30' 
+where 제품번호 = '96';
+
+# 문제3 확인용
+select * from 제품
+where 제품번호 = '96';
+
+select * from 부서;
+
+/* 문제4 */
+# 사원이 한 명도 없는 부서명
+select 부서명, 사원번호
+from 사원
+right outer join 부서
+on 사원.부서번호 = 부서.부서번호
+where 사원.부서번호 is null;
+
+# 사원이 한 명도 없는 부서명 삭제
+delete 부서
+from 부서
+left join 사원
+on 부서.부서번호 = 사원.부서번호
+where 사원.부서번호 is null;
+
+# 삭제 확인용
+select *
+from 부서;
+
+/* PK 제약조건: null 값과 중복되는 값, duplicate 에러  */
+
+use 한빛학사;
+
+/*
+	데이터 정의어(Data Definition Language, DDL): 데이터베이스 내에서 테이블이나 인덱스, 뷰 등의 객체를 만들거나 수정, 삭제할 때 
+    사용하는 언어로 CREATE, ALTER, DROP이 있음
+    
+    CHAR(최대 255Bytes): 고정길이 문자형 데이터타입(지정한 길이보다 데이터 길이가 작으면 빈칸 만큼 공백이 들어감)
+    VARCHAR(최대 65,535Bytes): 가변길이 문자형 데이터타입(데이터의 길이만큼의 메모리만 차지)
+    TEXT(최대 65,535Bytes): 길이를 지정하지 않음
+    우선순위: CHAR > VARCHAR/ 사용은 VARCHAR > CHAR > TEXT
+    
+    TIMESTAMP는 내부적으로 시간을 가져올 때 시간대를 적용(즉, 데이터베이스가 글로벌 서비스에서 사용되면 TIMESTAMP 사용)
+	★ TIMESTAMP		형식: YYYY-MM-DD HH:MI:SS	데이터 범위: 1970-01-01 00:00:01 UTC ~ 2038-01-19 03:14:07 UTC
+*/
+/*
+    ★ Table 속성(Charset: utf8mb4, Engine: InnoDB)
+    데이터베이스 생성)
+    CREATE: 데이터베이스나 테이블, 뷰, 인덱스 등 객체를 만들 때 사용
+    CREATE DATABASE [IF NOT EXISTS] 데이터베이스명;
+*/
+create database 한빛학사;
+
+/*
+    테이블 생성) 
+    CREATE TABLE 테이블명
+    (
+		필드명1 데이터타입		# 모든 컬럼에는 데이터타입을 지정해줘야 함
+        , 필드명2 데이터타입
+    );
+*/    
+create table 학과
+(
+	학과번호 CHAR(2)
+    , 학과명 VARCHAR(20)
+    , 학과장명 VARCHAR(20)
+);
+
+create table 학생
+(
+	학번 CHAR(5)
+    , 이름 VARCHAR(20)
+    , 생일 DATE
+    , 연락처 VARCHAR(20)
+    , 학과번호 CHAR(2)
+);
+
+INSERT INTO 학생
+VALUES('S0001', '이윤주', '2020-01-30', '01033334444', 'A4')
+, ('S0002', '이승은', '2021-02-23', NULL, 'AA')
+, ('S0003', '백재용', '2018-03-31', '01077778888', 'DD');
+
+/*  테이블의 구조와 데이터 복사)
+    CREATE TABLE 테이블명 AS
+    SELECT문;
+    
+    ★ WHERE 1 = 2;(명령어): 데이터는 가져오지 않고, 구조만 가져옴 */
+create table 휴학생 as
+select * from 학생 where 1 = 2;
+
+/* 	GENERATED 컬럼: 테이블에 있는 컬럼을 기반으로 하여 계산된 값을 저장할 수 있는 컬럼 
+	컬럼 데이터타입 [GENERATED ALWAYS] AS 계산식 [VIRTUAL | STORED]
+    
+POWER(A, B): 숫자A의 숫자B 제곱승 */
+
+/* DECIMAL(A, B): 전체 자릿수 A(65까지 표현), 소수점 자릿수 B(30까지 표현), 고정 소수점 형식(DEC, NUMERIC) */
+create table 회원
+(
+	아이디 varchar(20) primary key
+    , 회원명 varchar(20)
+    , 키 int
+    , 몸무게 int
+    , 체질량지수 decimal(4, 1) as (몸무게 / power(키 / 100, 2)) stored
+);
+
+insert into 회원(아이디, 회원명, 키, 몸무게)
+values('APPLE', '김사과', 178, 70);
+
+/* ADD 컬럼추가) ALTER TABLE 테이블명 ADD COLUMN new_컬럼명 데이터타입; */
+alter table 학생 add 성별 char(1);
+
+/* MODIFY 컬럼 데이터타입 변경) ALTER TABLE 테이블명 MODIFY COLUMN 컬럼명 new_데이터타입; */
+alter table 학생 modify column 성별 varchar(2);
+
+/* CHANGE 컬럼명 변경) ALTER TABLE 테이블명 CHANGE COLUMN old_컬럼명 new_컬럼명 데이터타입; */
+alter table 학생 change column 연락처 휴대폰번호 varchar(20);
+
+/* 	delete 구조는 남아있으나 내부의 데이터만 삭제, drop: 필드와 내부의 데이터 전부 삭제 
+	DROP 컬럼 삭제) ALTER TABLE 테이블명 DROP COLUMN 컬럼명; */
+alter table 학생 drop column 성별;
+
+/* RENAME 테이블명 변경) ALTER TABLE old_테이블명 RENAME new_테이블명; */
+alter table 휴학생 rename 졸업생;
+
+/* 	DROP: 데이터베이스, 테이블 및 기타 여러 객체를 삭제할 때 사용
+	DROP DATABASE 데이터베이스명;
+    DROP TABLE 테이블명; */
+drop table 학과;
+drop table 학생;
+
+/* 	
+	제약조건) 데이터 사전에 저장, 고유한 이름을 붙여서 식별, 한 컬럼에 여러 개의 제약조건을 설정,
+			CREATE문으로 테이블을 생성할 때 지정, ALTER문으로 테이블의 구조를 변경할 때 지정
+	CREATE TABLE 테이블명
+	(
+		컬럼1 데이터타입 제약조건   # 방법1
+        
+        , 컬럼2 데이터타입   # 방법2
+        , 제약조건(컬럼2)
+    );
+    UNIQUE: 중복된 값 불가
+    CHECK(필드명 IN (A, B)): 해당 필드에는 A또는 B, Null만 들어갈 수 있음(NN(Not Null)이 있으면 A 또는 B만 들어갈 수 있음)
+    check(필드명 between A and B): 해당 필드에는 A부터 B까지만 들어갈 수 있음.
+    REFERENCES 테이블명(필드명): 테이블의 필드열을 참조
+    FOREIGN KEY: 외래키
+    AUTO_INCREMENT(INT형): 일련번호(숫자), MySQL에서 가능(Oracle에서는 불가)
+*/
+# 제약조건 방법1: 컬럼 레벨의 제약조건 설정
+create table 학과
+(
+	학과번호 char(2) primary key
+    , 학과명 varchar(20) not null
+    , 학과장명 varchar(20)
+);
+
+# 제약조건 방법2: 테이블 레벨로 제약조건 설정
+create table 학과
+(
+	학과번호 char(2)
+    , 학과명 varchar(20) not null
+    , 학과장명 varchar(20)
+    , primary key(학과번호)
+);
+
+/* 제약조건을 추가하여 학생 테이블 생성 */
+# 방법1
+create table 학생
+(
+	학번 char(5) primary key
+    , 이름 varchar(20) not null
+    , 생일 date not null
+    , 연락처 varchar(20) unique	# unique: 중복 값 불가
+    , 학과번호 char(2) references 학과(학과번호)
+    , 성별 char(1) check(성별 in ('남', '여'))
+    , 등록일 date default(curdate())
+    , foreign key(학과번호) references 학과(학과번호)	# 학과 테이블에 학과번호 필드 내 값이 있어야 함.(주소값 참조)
+);
+
+# 방법 2
+create table 학생
+(
+	학번 char(5)
+    , 이름 varchar(20) not null
+    , 생일 date not null
+    , 연락처 varchar(20)
+    , 학과번호 char(2)
+    , 성별 char(1)
+    , 등록일 date default(curdate())
+    , primary key(학번)
+    , unique(연락처)
+    , check(성별 in ('남', '여'))
+    , foreign key (학과번호) references 학과(학과번호)
+);
+
+/* 제약조건을 추가하여 과목 테이블 생성 */
+# 방법1
+create table 과목
+(
+	과목번호 char(5) primary key	# PK에는 NN포함
+    , 과목명 varchar(20) not null
+    , 학점 int not null check(학점 between 2 and 4)
+    , 구분 varchar(20) check(구분 in('전공', '교양', '일반'))
+);
+
+# 방법2
+create table 과목
+(
+	과목번호 char(5)
+    , 과목명 varchar(20) not null # NN(Not Null): 필수 입력(Null 불가)
+    , 학점 int not null
+    , 구분 varchar(20)
+    , primary key(과목번호)
+    , check(학점 between 2 and 4)
+    , check(구분 in('전공','교양','일반'))
+);
+
+# 제약조건 추가, 수강_1 테이블 생성, 기본키는 수강년도, 수강학기, 학번, 과목 모두 포함
+create table 수강_1
+(
+	수강년도 char(4) not null
+    , 수강학기 varchar(20) not null check(수강학기 in('1학기', '2학기', '여름학기', '겨울학기'))
+    , 학번 char(5) not null
+    , 과목번호 char(5) not null
+    , 성적 decimal(3, 1) check(성적 between 0 and 4.5)
+    , primary key(수강년도, 수강학기, 학번, 과목번호) # 일반적으로 좋은 방법은 아님, 일련번호 생성하여 처리
+    , foreign key(학번) references 학생(학번)
+    , foreign key(과목번호) references 과목(과목번호)
+);
+
+# 수강번호 대리키를 기본으로 하는 제약조건 추가, 수강번호는 자동으로 일련번호 생성(★ AUTO_INCREMENT)
+# ★ AUTO_INCREMENT: 자동으로 일련번호를 생성하므로 별도로 값을 넣으면 오류가 발생
+create table 수강_2
+(
+	수강번호 int primary key auto_increment # 이처럼 묶은 뒤 auto_increment 사용
+    , 수강년도 char(4) not null
+    , 수강학기 varchar(20) not null check(수강학기 in('1학기', '2학기', '여름학기', '겨울학기'))
+    , 학번 char(5) not null
+    , 과목번호 char(5) not null
+    , 성적 decimal(3, 1) check(성적 between 0 and 4.5)
+    , foreign key (학번) references 학생(학번)
+    , foreign key (과목번호) references 과목(과목번호)
+);
+
+# 학과 테이블에 레코드 3건 추가
+insert into 학과
+values ('AA', '컴퓨터공학과', '배경민');
+
+insert into 학과
+values ('BB', '소프트웨어학과', '김남준'); # 학과 테이블 내 학과번호('BB')는 PK로 중복된 값 불가(기존 'AA' → 'BB'로 수정)
+
+insert into 학과
+values ('CC', '디자인융합과', '박선영');
+
+# 학생 테이블에 레코드 3건 추가
+insert into 학생(학번, 이름, 생일, 학과번호)
+values ('S0001', '이윤주', '2020-01-30', 'AA');
+
+/*
+	insert into 학생(이름, 생일, 학과번호)	# PK인 학번이 없어서 오류
+	values ('이승은', '2021-02-23', 'AA'); 
+*/
+insert into 학생(학번, 이름, 생일, 학과번호)
+values ('S0002', '이승은', '2021-02-23', 'AA');
+
+/*
+	insert into 학생(학번, 이름, 생일, 학과번호)
+	values ('S0003', '백재용', '2018-03-31', 'DD');
+	# 학생 테이블 내 학과번호는 'foreign key (학과번호) references 학과(학과번호)'로 외래키인 상황에서
+	학과 테이블 내 학과번호 필드값으로 'DD'가 없어서 오류 
+*/
+insert into 학생(학번, 이름, 생일, 학과번호)
+values ('S0003', '백재용', '2018-03-31', 'CC');
+
+/* insert into 과목(과목번호, 과목명, 구분) # 학점이 NN인데 Null이라 오류
+values ('C0001', '데이터베이스실습', '전공'); */
+insert into 과목(과목번호, 과목명, 구분, 학점)
+values ('C0001', '데이터베이스실습', '전공', 3);
+
+/* insert into 과목(과목번호, 과목명, 구분, 학점) 
+values ('C0002', '데이터베이스 설계와 구축', '전공', 5); # 학점의 범위(2 ~ 4) 초과하여 오류 */
+insert into 과목(과목번호, 과목명, 구분, 학점)
+values ('C0002', '데이터베이스 설계와 구축', '전공', 4);
+
+insert into 과목(과목번호, 과목명, 구분, 학점)
+values ('C0003', '데이터 분석', '전공', 3);
+
+insert into 수강_1(수강년도, 수강학기, 학번, 과목번호, 성적)
+values('2023', '1학기', 'S0001', 'C0001', 4.3);
+
+/* insert into 수강_1(수강년도, 수강학기, 학번, 과목번호, 성적)
+values('2023', '1학기', 'S0001', 'C0001', 4.5); 위 코드와 수강_1의 PK값이 동일하여 INSERT 불가*/
+
+/* insert into 수강_1(수강년도, 수강학기, 학번, 과목번호, 성적)
+values('2023', '1학기', 'S0001', 'C0001', 4.6 ); # 성적의 범위(0 ~ 4.5) 초과 */
+
+/* insert into 수강_1(수강년도, 수강학기, 학번, 과목번호, 성적)
+values('2023', '1학기', 'S0001', 'C0009', 4.3); 
+# 과목번호는 'foreign key(과목번호) references 과목(과목번호)'로 참조값이나 과목.과목번호에 'C0009'은 없어서 오류 */
+
+insert into 수강_2(수강년도, 수강학기, 학번, 과목번호, 성적)
+values('2023', '1학기', 'S0001', 'C0001', 4.3);
+
+insert into 수강_2(수강년도, 수강학기, 학번, 과목번호, 성적)
+values('2023', '1학기', 'S0001', 'C0001', 4.5);
+
+/* 	제약조건의 추가)
+	ALTER TABLE 테이블명 ADD CONSTRAINT 제약조건(컬럼명);
+    ALTER TABLE 테이블명 ADD CHECK 제약조건(컬럼명); */
+alter table 학생 add constraint check(학번 like 'S%');
+
+# 학생 테이블에 설정되어 있는 제약조건 명세를 확인
+select *
+from information_schema.table_constraints
+where constraint_schema = '한빛학사'
+and table_name = '학생';
+
+/* 	제약조건의 삭제)
+	ALTER TABLE 테이블명 DROP CONSTRAINT 제약조건명; */
+alter table 학생 drop constraint 연락처;
+
+alter table 학생 drop constraint 학생_chk_1;
+alter table 학생 drop constraint 학생_chk_2;
+alter table 학생 add check (학번 like 'S%');
+
+/* 	
+	제약조건명의 지정)
+	컬럼 레벨: 컬럼명 데이터타입 [CONSTRAINT 제약조건명] 제약조건
+    테이블 레벨: [CONSTRAINT 제약조건명] 제약조건
+    제약조건명: '제약조건_테이블명_필드명'으로 설정하면 추후 제약조건을 찾기가 수월(수정, 삭제 등)
+*/
+
+create table 학생_2
+(
+	학번 char(5)
+    , 이름 varchar(20) not null
+    , 생일 date not null
+    , 연락처 varchar(20)
+    , 학과번호 char(2)
+    , 성별 char(1)
+    , 등록일 date default(curdate())
+    , primary key(학번)
+    , constraint uk_학생2_연락처 unique(연락처)
+    , constraint ck_학생2_성별 check(성별 in('남', '여'))
+    , constraint fk_학생2_학과번호 foreign key (학과번호) references 학과(학과번호)
+);
+
+# 제약조건 명세 확인
+select *
+from information_schema.table_constraints
+where constraint_schema = '한빛학사'
+and table_name = '학생_2';
+
+/*
+	★ CURRENT_TIMESTAMP: 현재 날짜와 시간을 반환
+    ON DELETE CASCADE: (외래 키 제약 조건을 정의할 때 사용)부모 테이블에서 행을 삭제할 때 자식 테이블의 해당 행들도 자동 삭제
+*/
+create table 수강평가
+(
+	평가순번 int primary key auto_increment
+    , 학번 char(5) not null
+    , 과목번호 char(5) not null
+    , 평점 int check(평점 between 0 and 5)
+    , 과목평가 varchar(500)
+    , 평가일시 timestamp default current_timestamp
+    , foreign key (학번) references 학생(학번)
+    , foreign key (과목번호) references 과목(과목번호) on delete cascade
+);
+
+# 수강평가 테이블에 4건의 레코드 추가
+insert into 수강평가(학번, 과목번호, 평점, 과목평가)
+values('S0001', 'C0001', 5, 'SQL학습에 도움이 되었습니다.')
+, ('S0001', 'C0003', 5, 'SQL 활용을 배워서 좋았습니다.')
+, ('S0002', 'C0003', 5, '데이터 분석에 관심이 생겼습니다.')
+, ('S0003', 'C0003', 5, '머신러닝과 시각화 부분이 유용했습니다.');
+
+SELECT * FROM 수강평가;
+
+delete from 과목 where 과목번호 = 'C0003';
+
+select * from 과목;
+select * from 수강평가;
+
+/*
+	delete from 과목 where 과목번호 = 'C0001';
+	수강_1에서 'C0001'을 참조해서 사용하고 있기 때문에 삭제되지 않음.
+*/
+
+/* 융합 점검 문제 */
+# 회원_테이블 생성
+create table 회원_테이블
+(
+	아이디 char(5) primary key
+    , 이름 char(5)
+    , 생년 int check(생년 between 1900 and 2000)
+    , 지역 char(5)
+    , 국번 int
+    , 전화번호 varchar(20)
+    , 키 int check(키 between 100 and 250)
+    , 가입일 varchar(20)
+);
+
+# 구매_테이블 생성
+create table 구매_테이블
+(
+	순번 int primary key auto_increment
+    , 아이디 char(5)
+    , 물품 varchar(10)
+    , 분류 char(5)
+    , 단가 int
+    , 수량 int
+    , foreign key (아이디) references 회원_테이블(아이디)
+);
+
+# 회원_테이블 정보 입력
+insert into 회원_테이블(아이디, 이름, 생년, 지역, 국번, 전화번호, 키, 가입일)
+values('YJS', '유재석', 1972, '서울', 010, '11111111', 178, '2008.8.8')
+, ('KHD', '강호동', 1970, '경북', 011, '22222222', 182, '2007.7.7')
+, ('KKJ', '김국진', 1965, '서울', 019, '33333333', 171, '2009.9.9')
+, ('KYM', '김용만', 1967, '서울', 010, '44444444', 177, '2015.5.5')
+, ('KJD', '김제동', 1974, '경남', NULL, NULL, 173, '2013.3.3')
+, ('NHS', '남희석', 1971, '충남', 016, '66666666', 180, '2017.4.4')
+, ('SDY', '신동엽', 1971, '경기', NULL, NULL, 176, '2008.10.10')
+, ('LHJ', '이휘재', 1972, '경기', 011, '88888888', 180, '2006.4.4')
+, ('LKK', '이경규', 1960, '경남', 018, '99999999', 170, '2004.12.12')
+, ('PSH', '박수홍', 1970, '서울', 010, '00000000', 183, '2012.5.5');
+
+SELECT * FROM 회원_테이블;
+
+insert into 구매_테이블(아이디, 물품, 분류, 단가, 수량)
+values('KHD', '운동화', NULL, 30, 2)
+, ('KHD', '노트북', '전자', 1000, 1)
+, ('KYM', '모니터', '전자', 200, 1)
+, ('PSH', '모니터', '전자', 200, 5)
+, ('KHD', '청바지', '의류', 50, 3)
+, ('PSH', '메모리', '전자', 80, 10)
+, ('KJD', '책', '서적', 15, 5)
+, ('LHJ', '책', '서적', 15, 2)
+, ('LHJ', '청바지', '의류', 50, 1)
+, ('PSH', '운동화', NULL, 30, 2)
+, ('LHJ', '책', '서적', 15, 1)
+, ('PSH', '운동화', NULL, 30, 2);
+
+SELECT * FROM 구매_테이블;
