@@ -1,0 +1,663 @@
+#2024-05-16------------------------------------------------------------------------------------------------------------
+use 한빛학사;
+use 한빛무역;
+
+/* 점검문제 */
+
+/* 문제1 */
+select * from 제품;
+alter table 제품 add constraint check(재고 >= 0);
+
+# 문제1 확인용
+select * 
+from information_schema.table_constraints
+where constraint_schema = '한빛무역'
+and table_name = '제품';
+
+/* 문제2 */
+alter table 제품 add column 재고금액 int;
+update 제품
+set 재고금액 = 단가 * 재고;
+
+# 문제2 확인용
+select * from 제품;
+
+/* 문제3 */
+alter table 주문세부 add constraint foreign key (제품번호) references 제품(제품번호) on delete cascade;
+
+# 문제3 확인용
+select * 
+from information_schema.table_constraints
+where constraint_schema = '한빛무역'
+and table_name = '주문세부';
+
+/*	뷰의 장점: 데이터 중복성 최소화, 데이터 보안성, 간편한 데이터 접근, 데이터 가상화
+    뷰에서 뷰를 생성할 수도 있음
+    뷰 생성 1번 사항: PK 넣어서 생성, 2번 사항: WITH CHECK OPTION
+	뷰 생성)
+	  1. OR REPLACE
+	    CREATE [OR REPLACE] VIEW 뷰명
+        AS
+        SELECT문;
+    
+      2. ALTER
+        ALTER VIEW 뷰명
+        AS
+        SELECT문; */
+# 컬럼명에 별명 붙이기(뷰를 사용할 때에는 컬럼명에 붙인 별명 사용)
+create or replace view view_사원
+as
+select 이름, 집전화 as 전화번호, 입사일, 주소 from 사원;
+
+# 컬럼 또는 컬럼의 별명을 뷰 이름 옆에 나열
+create or replace view view_사원(이름, 전화번호, 입사일, 주소)
+as
+select 이름, 집전화, 입사일, 주소 from 사원;
+
+# 생성한 뷰 조회
+select * from view_사원;
+
+create or replace view view_제품별주문수량합
+as
+select 제품명, sum(주문수량) as 주문수량합 
+from 제품
+inner join 주문세부
+on 제품.제품번호 = 주문세부.제품번호
+group by 제품명;
+
+select * from view_제품별주문수량합;
+
+create or replace view view_사원_여
+as
+select 이름, 집전화 as 전화번호, 입사일, 주소, 성별
+from 사원
+where 성별 = '여';
+
+select * from view_사원_여;
+
+/*	뷰 조회) SELECT * FROM 뷰명; */
+select * from view_사원_여
+where 전화번호 like '%88%';
+
+select * from view_제품별주문수량합
+where 주문수량합 >= 1200;
+
+/* 	뷰 메타 정보 확인)
+	  1. INFORMATION_SCHEMA.VIEWS(표준형태)
+	    SELECT * FROM INFROMATION_SCHEMA.VIEWS
+	    WHERE TABLE_NAME = '뷰명';
+      2. SHOW CREATE VIEW
+        SHOW CREATE VIEW 뷰명; */
+select *
+from information_schema.views	# 표준형태
+where table_name = 'view_사원';
+
+show create view view_사원;
+
+/* 	뷰 삭제) DROP VIEW 뷰명; */
+drop view view_사원;
+
+/* insert into view_사원_여(이름, 전화번호, 입사일, 주소, 성별)
+values('황여름', '(02)587-4989', '2023-02-10', '서울시 강남구 청담동 23-5', '여');
+*오류 발생, 원천 테이블에 PK 포함하여 생성하거나 WITH CHECK OPTION 사용 */
+
+create or replace view view_사원_여 # 해당 방법을 선호
+as
+select 사원번호 # PK
+	, 이름
+    , 집전화 as 전화번호
+    , 입사일
+    , 주소
+    , 성별
+from 사원
+where 성별 = '여';
+
+alter view view_사원_여 # 여기서의 ALTER는 CREATE 개념으로 가능하나 권장하지 않고, CREATE OR REPLACE 방법으로 사용
+as
+select 사원번호, 이름, 집전화 as 전화번호, 입사일, 주소, 성별
+from 사원
+where 성별 = '여';
+
+# 사원번호(PK) 값이 기존 'E12'가 있어서 Duplicate 오류 메시지
+insert into view_사원_여(사원번호, 이름, 전화번호, 입사일, 주소, 성별)
+values('E12', '황여름', '(02)587-4989', '2023-02-10', '서울시 강남구 청담동 23-5', '여');
+
+# 뷰를 통한 레코드 삽입 확인
+select * from view_사원_여
+where 사원번호 = 'E12';
+
+# 뷰를 사용하여 레코드를 추가했으나 실제로는 사원 테이블에 레코드가 삽입됨
+select * from 사원
+where 사원번호 = 'E12';
+
+# 뷰는 가상 테이블로 값을 직적 입력할 수 없음
+insert into view_제품별주문수량합
+values('단짠 새우깡', 250);
+
+/* 	종속성(종속관계) 제거)
+	★ WITH CHECK OPTION: 뷰에서 사용하는 옵션 중 하나로, INSERT 또는 UPDATE 작업을 수행할 때 해당 작업으로 인해 뷰에서 정의한 조건을
+    만족하지 않는 행이 생성되거나 수정되는 것 방지, 이를 사용하면 뷰를 통해 데이터를 수정하거나 삽입할 때 뷰의 조건을 만족하는 데이터만 작업이 가능
+    CREATE [OR REPLACE] VIEW 뷰명
+    AS
+    SELECT문
+    WITH CHECK OPTION; */
+insert into view_사원_여(사원번호, 이름, 입사일, 주소, 성별)
+values('E13', '강겨울', '2023-02-10', '서울시 성북구 장위동 123-7', '남');
+
+# 삽입된 레코드 확인(삽입은 정상적으로 이루어졌으나 검색되지 않음)
+select *
+from view_사원_여
+where 사원번호 = 'E13';
+
+# 테이블에는 존재
+select * from 사원 
+where 사원번호 = 'E13';
+
+
+create or replace view view_사원_여
+as
+select 사원번호, 이름, 집전화 as 전화번호, 입사일, 주소, 성별
+from 사원
+where 성별 = '여'
+with check option;
+
+# 성별로 인해 오류(원천 테이블도 추가되지 않음)
+insert into view_사원_여(사원번호, 이름, 성별)
+values('E14', '유봄', '남'); 
+
+# 성별로 인해 오류(원천 테이블도 추가되지 않음)
+update view_사원_여
+set 성별 = '남' 
+where 이름 = '황여름';
+
+/* 	인덱스(Index): 데이터베이스 테이블에서 특정 컬럼이나 컬럼의 집합에 대한 검색 성능을 향상시키기 위해 사용되는 자료구조
+	(방대한 양의 데이터를 검색할 때 속도를 빠르게 하기 위해서 사용, 외부에서 검색하는 것에 대한 결과값에는 영향을 주지 않음)
+	B-트리 인덱스: 가장 일반적으로 사용되는 인덱스 형식으로 좌우 자식 간에 항상 균형을 이루는 균형 트리(Balanced Tree)
+    B-트리에서 노드(Node)는 블록(Block) 또는 페이지(Page)로 부름
+	
+    인덱스의 장점: 검색 속도 향상, 정렬 및 순서 유지, 중복 제거, 조인 및 쿼리 성능 향상 
+
+ 	클러스터형 인덱스(Clustered Index): 기본 인덱스, 
+	기본키 컬럼(한 테이블당 하나의 열에만 설정이 가능)에 대해 행 데이터가 오름차순으로 정렬되는 인덱스 
+	
+    비클러스터형 인덱스(Non-Clustered Index): 보조 인덱스, 책의 찾아보기 페이지와 유사 */
+
+/* 	인덱스 생성)
+	방법1.(권장하는 방법) CREATE [UNIQUE] INDEX 인덱스명 ON 테이블명(컬럼명);
+    방법2.(권장하지 않는 방법) 테이블 생성하면서 인덱스 생성
+    CREATE TABLE 테이블명
+    (
+	 컬럼1 데이터타입
+	 , 컬럼2 데이터타입
+     , 컬럼3 데이터타입
+     , 컬럼4 데이터타입
+     , PRIMARY KEY(컬럼1, 컬럼2, 컬럼3)
+     , INDEX 인덱스명 (컬럼4)
+    )
+    
+    테이블에 인덱스 추가)
+    ALTER TABLE 테이블명 ADD INDEX 인덱스명 (컬럼명);
+    
+    테이블에서 인덱스 삭제)
+    ALTER TABLE 테이블명 DROP INDEX 인덱스명 (컬럼명);
+    
+    테이블에 걸려있는 인덱스 확인)
+    SHOW INDEX FROM 테이블명; */
+create table 날씨
+(
+ 년도 int
+ , 월 int
+ , 일 int
+ , 도시 varchar(20)
+ , 기온 decimal(3, 1)
+ , 습도 int
+ , primary key(년도, 월, 일, 도시) 	# Clustered Index
+ , index 기온인덱스(기온) 			# Non-Clustered Index
+ , index 도시인덱스(도시) 			# Non-Clustered Index
+);
+
+# 검색
+select * from 사원 where 부서번호 = 'A2';
+
+# 인덱스 생성 후 검색(속도 비교)
+create index idx_사원 on 사원(부서번호);
+select * from 사원 where 부서번호 = 'A2';
+
+/* 	★ 변수(사용자 정의 변수, 로컬 변수, 시스템 변수)
+	사용자 정의 변수(@): @를 접두사로 사용, SET으로 선언 후 값 할당
+    로컬 변수: DECLARE문을 사용하여 선언, SELECT이나 SET을 사용하여 값 할당
+    시스템 변수(@@): @@를 접두사로 사용, SET으로 선언 후 값 할당 */
+
+/* 	IF문
+	IF 조건1 THEN
+		조건1이 참일 때 실행할 코드
+	[ELSEIF 조건2 THEN
+		조건2가 참일 때 실행할 코드]
+	[ELSE
+		모든 조건이 참이 아닐 때 실행할 코드]
+	END IF; */
+
+/* 	DELIMITER $$
+	~
+     END $$
+    DELIMITER ; : DELIMITER $$ ~ END $$까지의 부분을 하나의 문장으로 취급, DELIMITER ; 이후부터는 다시 ;로 하나의 문장 취급 */
+# IF문을 사용하여 두 개의 숫자 10과 5의 크기를 비교하는 프로시저 작성
+delimiter $$
+create procedure proc_if()
+	begin
+		declare x int;
+        declare y int default 5;
+        set x = 10;
+        
+        if x > y then
+			select 'x는 y보다 큽니다.' as 결과;
+		else
+			select 'x는 y보다 작거나 같습니다.' as 결과;
+		end if;
+	end $$
+delimiter ;
+
+# 작성한 스토어드 프로시저 CALL 사용하여 실행
+call proc_if();
+
+/*	CASE
+		WHEN 조건1 THEN
+			조건1이 참일 때 실행할 코드
+		[WHEN 조건2 THEN
+			조건2가 참일 때 실행할 코드]
+		[ELSE
+			모든 조건이 참이 아닐 때 실행할 코드]
+	END CASE; */
+
+# CASE문을 사용하여 숫자 10이 짝수인지 홀수인지 판별하는 프로시저 작성
+delimiter $$
+create procedure proc_case()
+	begin
+		declare x int default 10;
+        declare y int;
+        set y = 10 mod 2; # 10을 2로 나눈 나머지
+        
+        case
+			when y = 0 then
+				select 'x는 짝수입니다.' as '결과';
+			else
+				select 'x는 홀수입니다.' as '결과';
+		end case;
+	end $$
+delimiter ;
+
+# 작성한 프로시저 실행
+call proc_case();
+
+/* 	WHILE 조건 DO
+		반복적으로 실행할 코드
+	END WHILE; */
+    
+# WHILE문으로 1부터 10까지의 합을 출력하는 프로시저 작성
+delimiter $$
+create procedure proc_while()
+	begin
+		declare x int default 0;
+        declare y int default 0;
+        
+        while x < 10 do
+			set x = x + 1;
+            set y = y + x;
+		end while;
+        select x, y;
+	end $$
+delimiter ;
+
+# 작성한 프로시저 실행
+call proc_while();
+
+/* 	레이블명:LOOP
+		반복적으로 실행할 코드
+        IF 조건 THEN
+			LEAVE 레이블명;
+		END IF;
+	END LOOP; */
+
+# LOOP문으로 1부터 10까지의 합을 출력하는 프로시저 작성
+delimiter $$
+create procedure proc_loop()
+	begin
+		declare x int default 0;
+        declare y int default 0;
+        
+        loop_sum:loop
+			set x = x + 1;
+            set y = y + x;
+            if x > 10 then
+				leave loop_sum;
+			end if;
+            select x, y;
+		end loop;
+	end $$
+delimiter ;
+
+# 프로시저 실행
+call proc_loop();
+
+/*	REPEAT
+		반복적으로 실행할 코드
+	UNTIL 조건; */
+
+# REPEAT문으로 1부터 10까지의 합을 출력하는 프로시저 작성
+delimiter $$
+create procedure proc_repeat()
+	begin
+		declare x int default 0;
+		declare y int default 0;
+		
+		repeat
+			set x = x + 1;
+			set y = y + x;
+		until x >= 10 end repeat;
+		select x, y;
+	end $$
+delimiter ;
+
+# 프로시저 실행
+call proc_repeat();
+
+/*	사용자 정의 프로시저의 생성, 호출 삭제
+	프로시저는 IN, OUT, INOUT 매개변수로 값을 줌
+	생성)
+    DELIMITER $$
+    CREATE PROCEDURE 사용자_정의_프로시저명
+		(
+         [IN|OUT|INOUT]
+        )
+    BEGIN
+		실행코드
+	END $$
+    DELIMITER ;
+    
+    호출) CALL 프로시저명;
+    
+    삭제) DROP PROCEDURE 프로시저명; */
+
+# 고객 정보와 고객 수를 보이는 프로시저 작성
+delimiter $$
+create procedure proc_고객정보()
+	begin
+		select *
+        from 고객;
+        
+        select count(*) as 고객수
+        from 고객;
+	end $$
+delimiter ;
+
+# 프로시저 실행
+call proc_고객정보();
+
+# 도시를 입력하면 해당 도시의 고객 정보와 고객 수를 보이는 프로시저 작성
+delimiter $$
+create procedure proc_도시고객정보
+	(
+		in city varchar(50) # 매개변수 값은 50자 내의 varchar형으로 받음
+    )
+    begin
+		select *
+        from 고객
+        where 도시 = city;
+        select count(*) as 고객수
+        from 고객
+        where 도시 = city;
+	end $$
+delimiter ;
+
+# 프로시저 실행
+call proc_도시고객정보('부산광역시'); # 매개변수 varchar형으로 줌
+
+# 주문년도와 고객의 도시를 입력하면 해당 년도에 해당 도시의 고객이 주문한 내역에 대하여 주문고객별로 주문건수를 보이는 프로시저 작성
+delimiter $$
+create procedure proc_주문년도도시_고객정보
+	(
+		in order_year int		# 매개변수로 (int, varchar)를 받음
+        , in city varchar(50)
+    )
+    begin
+		select 고객.고객번호, 고객회사명, 도시, count(*) as 주문건수
+        from 고객 join 주문
+        on 고객.고객번호 = 주문.고객번호
+        where year(주문일) = order_year
+        and 도시 = city
+        group by 고객.고객번호, 고객회사명;
+	end $$
+delimiter ;
+
+# 프로시저 실행
+call proc_주문년도도시_고객정보(2021, '공주시');
+
+# 고객회사명과 추가할 마일리지를 입력하면 해당 고객에 대하여 입력한 마일리지 만큼 추가하는 프로시저 작성
+delimiter $$
+create procedure proc_고객회사명_마일리지추가
+	(
+		in company varchar(50)		# 매개변수로 (varchar, int)를 받음
+        , in add_mileage int
+    )
+    begin
+		select 고객번호, 고객회사명, 마일리지 as 변경_전_마일리지
+        from 고객
+        where 고객회사명 = company;
+        
+        update 고객
+        set 마일리지 = 마일리지 + add_mileage
+        where 고객회사명 = company;
+        
+        select 고객번호, 고객회사명, 마일리지 as 변경_후_마일리지
+        from 고객
+        where 고객회사명 = company;
+	end $$
+delimiter ;
+
+# 프로시저 실행
+call proc_고객회사명_마일리지추가('진영무역', 1000);
+
+# 고객회사명을 입력하면 해당 고객의 마일리지를 변경하는 프로시저 작성(고객의 마일리지가 전체 고객의 평균 마일리지보다 크면 100점 추가, 아니면 평균 마일리지 만큼으로 변경)
+delimiter $$
+create procedure proc_고객회사명_평균마일리지로_변경
+	(
+		in company varchar(50)		# 매개변수 varchar로 받음
+    )
+    begin
+		declare 평균마일리지 int;
+        declare 보유마일리지 int;
+        
+        select 고객회사명, 마일리지 as 변경_전_마일리지
+        from 고객
+        where 고객회사명 = company;
+        
+        set 평균마일리지 = (select avg(마일리지) from 고객);
+        set 보유마일리지 = (select 마일리지 from 고객 where 고객회사명 = company);
+        
+        if (보유마일리지 > 평균마일리지) then
+			update 고객
+            set 마일리지 = 마일리지 + 100
+            where 고객회사명 = company;
+		else
+			update 고객
+            set 마일리지 = 평균마일리지
+            where 고객회사명 = company;
+		end if;
+        
+        select 고객회사명, 마일리지 as 변경_후_마일리지
+        from 고객
+        where 고객회사명 = company;
+	end $$
+delimiter ;
+
+# 프로시저 실행
+call proc_고객회사명_평균마일리지로_변경('굿모닝서울');
+
+# 고객회사명을 입력하면 고객의 보유 마일리지에 따라서 등급을 보이는 프로시저 작성(고객의 마일리지가 100,000점 이상이면 '최우수고객회사', 50,000점 이상이면 '우수고객회사', 나머지는 '관심고객회사')
+delimiter $$
+create procedure proc_고객등급
+	(
+		in company varchar(50)
+        , out grade varchar(20)		# 여기서의 out이 return 역할
+    )
+    begin
+		declare 보유마일리지 int;
+        
+        select 마일리지
+        into 보유마일리지
+        from 고객
+        where 고객회사명 = company;
+        
+        if 보유마일리지 > 100000 then
+			set grade = '최우수고객회사';
+		elseif 보유마일리지 >= 50000 then
+			set grade = '우수고객회사';
+		else
+			set grade = '관심고객회사';
+		end if;
+	end $$
+delimiter ;
+
+# 프로시저 실행
+call proc_고객등급('그린로더스', @그린로더스등급);
+call proc_고객등급('오뚜락', @오뚜락등급);
+
+select @그린로더스등급, @오뚜락등급;
+
+# 인상율과 금액을 입력하면 인상금액을 계산, 그 결과를 확인하는 프로시저
+delimiter $$
+create procedure proc_인상금액
+	(
+		in increase_rate int
+        , inout price int
+    )
+    begin
+		set price = price * (1 + increase_rate / 100);
+	end $$
+delimiter ;
+
+# 프로시저 실행 결과 확인
+set @금액 = 10000;
+call proc_인상금액(10, @금액);
+select @금액;
+
+call proc_인상금액(10, @금액);
+select @금액;
+
+/*	사용자 정의 함수의 생성, 실행, 삭제
+	함수는 RETURN 값이 있음
+	생성)
+    DELIMITER $$
+	CREATE FUNCTION 사용자_정의_함수명(매개변수)
+    RETURNS 반환형식
+    BEGIN
+		실행코드
+        RETURN 반환값;
+	END $$
+	DELIMITER ;
+    
+    실행) SELECT 함수명();
+    
+    삭제) DROP FUNCTION 함수명; */
+
+# 수량과 단가를 입력하면 두 수를 곱하여 금액을 반환하는 함수 생성
+delimiter $$
+create function func_금액(quantity int, price int)
+	returns int 	# 반환형이 int가 아닌 다르면 X
+begin
+	declare amount int;
+    set amount = quantity * price;
+    return amount;
+end $$
+delimiter ;
+
+# 실행 결과 확인
+select func_금액(100, 4500);
+
+select *, func_금액(주문수량, 단가) as 주문금액 from 주문세부;
+
+/*	트리거(Trigger): 데이터베이스에서 데이터 삽입, 변경 또는 삭제와 같은 특정 이벤트가 발생할 때마다 자동으로 실행되는 작업
+	트리거 생성, 삭제
+    생성)
+    DELIMITER $$
+    CREATE TRIGGER 트리거명							# INSERT: OLD.컬럼명(X), NEW.컬럼명(O)/ UPDATE: OLD.컬럼명(O), NEW.컬럼명(O)
+    BEFORE|AFTER INSERT|UPDATE|DELETE ON 테이블명		# DELETE: OLD.컬럼명(O), NEW.컬럼명(X)
+    FOR EACH ROW 									# 트리거를 행단위로 작성하기 때문에 'FOR EACH ROW' 작성
+    BEGIN
+		실행코드
+	END $$
+    DELIMITER ;
+    
+    생성 확인) SHOW 트리거명;
+    
+    삭제) DROP TRIGGER 트리거명; */
+
+# 제품로그 테이블 생성 
+create table 제품로그
+(
+	로그번호 int auto_increment primary key
+    , 처리 varchar(10)
+    , 내용 varchar(100)
+    , 처리일 timestamp default current_timestamp
+);
+
+# 제품 추가할 때마다 로그 테이블에 정보를 남기는 트리거 작성
+delimiter $$
+create trigger trigger_제품추가로그
+after insert on 제품		# 제품을 추가한 뒤(after) 정보를 남기는(insert)
+for each row		# 트리거를 행 단위로 작성하기 때문에 'for each row'작성
+begin
+	insert into 제품로그(처리, 내용)
+	values('INSERT', CONCAT('제품번호:', NEW.제품번호, '제품명:', NEW.제품명));
+end $$
+delimiter ;
+
+# 트리거 동작 여부 확인
+insert into 제품(제품번호, 제품명, 단가, 재고)
+values(99, '레몬캔디', 2000, 10);
+
+select * from 제품 where 제품번호 = 99;
+
+select * from 제품로그;
+
+# 제품 테이블에서 단가나 재고가 변경되면 변경된 사항을 제품로그 테이블에 저장하는 트리거 작성
+delimiter $$
+create trigger trigger_제품변경로그
+after update on 제품
+for each row
+begin
+	if (new.단가 <> old.단가) then
+		insert into 제품로그(처리, 내용)
+		values('UPDATE', CONCAT('제품번호:', Old.제품번호, ' 단가:', old.단가, '->', new.단가 ));
+	end if;
+    
+    if (new.재고 <> old.재고) then
+		insert into 제품로그(처리, 내용)
+        values('UPDATE', CONCAT('제품번호:', old.제품번호, ' 재고:', old.재고, '->', new.재고 ));
+	end if;
+end $$
+delimiter ;
+
+# 트리거 동작 여부 확인
+update 제품
+set 단가 = 2500
+where 제품번호 = 99;
+
+select * from 제품로그;
+
+# 제품 테이블에서 제품 정보를 삭제하면, 삭제된 레코드의 정보를 제품로그 테이블에 저장하는 트리거 작성
+delimiter $$
+create trigger trigger_제품삭제로그
+after delete on 제품
+for each row
+begin
+	insert into 제품로그(처리, 내용)
+    values('DELETE', concat('제품번호:', old.제품번호, ' 제품명:', old.제품명));
+end $$
+delimiter ;
+
+# 트리거 동작 여부 확인
+delete from 제품
+where 제품번호 = 99;
+
+select * from 제품로그;
