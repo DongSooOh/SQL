@@ -1,0 +1,142 @@
+#2024-05-17------------------------------------------------------------------------------------------------------------
+use 한빛무역;
+use 한빛학사;
+
+/* 점검문제 */
+
+/* 문제1 */
+delimiter $$
+create procedure proc_주문수량_금액합
+	(
+		in grade varchar(20)
+	)
+begin
+	select 제품명
+		, sum(주문수량) as 주문수량합
+        , sum(주문세부.단가 * 주문세부.주문수량) as 주문금액합
+        from 제품 join 주문세부
+        on 제품.제품번호 = 주문세부.제품번호
+        where 제품명 like grade
+        group by 제품명;
+end $$
+delimiter ;
+
+call proc_주문수량_금액합('%캔디');
+
+drop procedure proc_주문수량_금액합;
+
+/* 문제2 */
+set global log_bin_trust_function_creators = 1;
+
+delimiter $$
+create function func_연령구분(happy date)
+	returns varchar(20)
+begin
+	declare age int;
+    declare age_g varchar(20);
+	set age = timestampdiff(year, happy, curdate());
+    
+	case 
+		when age < 20 then
+			set age_g = '미성년';
+		when age between 20 and 30 then
+			set age_g = '청년층';
+		when age between 30 and 55 then
+			set age_g = '중년층';
+		when age between 55 and 70 then
+			set age_g = '장년층';
+		when age > 70 then
+			set age_g = '노년층';
+		else
+			set age_g = Null;
+	end case;
+    return age_g;
+end $$
+delimiter ;
+
+select 사원번호, 이름, 생일
+	, timestampdiff(year, 생일, curdate()) as 나이
+    , func_연령구분(생일) as 연령구분
+from 사원;
+
+select func_연령구분('1988-08-27');
+
+drop function func_연령구분;
+
+
+/* DB, JAVA 연결하기 */
+
+/* DB survletex 생성 */
+create database servletex;
+
+use servletex;
+
+create table accounts 
+(
+ ano varchar(20) primary key,
+ owner varchar(20) not null,
+ balance numeric not null
+);
+
+insert into accounts (ano, owner, balance)
+values('111-111-1111', '하여름', 1000000);
+
+insert into accounts (ano, owner, balance)
+values('222-222-2222', '한겨울', 0);
+
+create table users
+(
+ userid varchar(50) primary key,
+ username varchar(50) not null,
+ userpassword varchar(50) not null,
+ userage numeric(3) not null,
+ useremail varchar(50) not null
+);
+
+create table boards
+(
+ bno int primary key auto_increment, # auto_increment: 자동으로 번호 생성(일련번호)
+ btitle varchar(100) not null,
+ bcontent longtext not null,
+ bwriter varchar(50) not null,
+ bdate datetime default now(),
+ bfilename varchar(50) null,
+ bfiledata longblob null
+);
+
+insert into users (userid, username, userpassword, userage, useremail)
+values('spring', '김봄이', '12345', 26, 'spring@mycompany.com');
+
+select * from users;
+
+insert into boards(bno, btitle, bcontent, bwriter, bdate, bfilename, bfiledata)
+values(14, '봄의 정원', '정원의 꽃이 이쁘네요.', 'winter', '22/01/25', 'spring.jpg', 'C:/web/mySQL/src/main/java/mySQL/images/snow.jpg');
+
+insert into boards(bno, btitle, bcontent, bwriter, bdate, bfilename, bfiledata)
+values(12, '눈 오는 날', '함박눈이 내려요.', 'winter', '22/01/25', 'snow.jpg', 'C:/web/mySQL/src/main/java/mySQL/images/snow.jpg');
+
+insert into boards(bno, btitle, bcontent, bwriter, bdate, bfilename, bfiledata)
+values(13, '크리스마스', '메리 크리스마스~', 'winter', '22/01/25', 'christmas.jpg', 'C:/web/mySQL/src/main/java/mySQL/images/snow.jpg');
+
+/* thisisjava DB 생성 */
+create database thisisjava;
+
+/* thisisjava 내 accounts 테이블 생성 */
+create table accounts 
+(
+ ano varchar(20) primary key,
+ owner varchar(20) not null,
+ balance numeric not null
+);
+
+create table t_member 
+(
+ id varchar(20) primary key,
+ pwd varchar(20) not null,
+ name varchar(20) not null,
+ email varchar(20) not null,
+ joinDate date
+);
+
+/* accounts 테이블 검색 */
+select * from accounts;
